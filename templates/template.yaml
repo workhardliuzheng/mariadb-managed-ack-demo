@@ -1,0 +1,182 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: 新建ack部署
+  zh-cn: new ack
+Parameters:
+  ClusterId:
+    Type: String
+    AssociationProperty: ALIYUN::CS::Cluster::ClusterId
+  Memory:
+    Type: String
+    AllowedValues:
+      - 1Gi
+      - 2Gi
+      - 4Gi
+  Vcpu:
+    Type: String
+    AllowedValues:
+      - 1
+      - 2
+  Storage:
+    Type: String
+    AllowedValues:
+      - 20Gi
+      - 40Gi
+      - 80Gi
+Resources:
+  ClusterApplication:
+    Type: ALIYUN::CS::ClusterApplication
+    Properties:
+      YamlContent:
+        Fn::Sub:
+          - |
+            apiVersion: v1
+            kind: Secret
+            metadata:
+              name: ${Name}-secret
+            data:
+              password: bWFyaWFkYg==
+            ---
+            apiVersion: v1
+            kind: ConfigMap
+            metadata:
+              name: ${Name}-mariadb-config
+            data:
+              mariadb.cnf: |
+                [mariadb]
+                bind-address=*
+                default_storage_engine=InnoDB
+                binlog_format=row
+                innodb_autoinc_lock_mode=2
+                max_allowed_packet=256M
+            ---
+            apiVersion: apps/v1
+            kind: StatefulSet
+            metadata:
+              name: ${Name}-mariadb
+            spec:
+              serviceName: ${Name}-mariadb
+              replicas: 1
+              selector:
+                matchLabels:
+                  app: ${Name}-mariadb
+              volumeClaimTemplates:
+                - metadata:
+                    name: data
+                  spec:
+                    accessModes:
+                      - ReadWriteOnce
+                    storageClassName: alicloud-disk-essd
+                    resources:
+                      requests:
+                        storage: ${Storage}
+              template:
+                metadata:
+                  labels:
+                    app: ${Name}-mariadb
+                spec:
+                  volumes:
+                    - name: ${Name}-mariadb-config
+                      configMap:
+                        name: ${Name}-mariadb-config
+                  containers:
+                    - name: mariadb
+                      image: mariadb:11.0.3
+                      resources:
+                        limits:
+                          cpu: ${Vcpu}
+                          memory: ${Memory}
+                        requests:
+                          cpu: ${Vcpu}
+                          memory: ${Memory}
+                      env:
+                        - name: MYSQL_ROOT_PASSWORD
+                          valueFrom:
+                            secretKeyRef:
+                              name: ${Name}-secret
+                              key: password
+                      ports:
+                        - containerPort: 3306
+                          name: mariadb
+                      volumeMounts:
+                        - name: data
+                          mountPath: /var/lib/mysql
+                        - name: ${Name}-mariadb-config
+                          mountPath: /etc/mysql/mariadb.conf.d/conf.d
+            ---
+            apiVersion: v1
+            kind: Service
+            metadata:
+              name: ${Name}-mariadb
+            spec:
+              selector:
+                app: ${Name}-mariadb
+              ports:
+                - port: 3306
+                  targetPort: 3306
+                  protocol: TCP
+            ---
+            apiVersion: networking.k8s.io/v1
+            kind: Ingress
+            metadata:
+              name: ${Name}-mariadb
+            spec:
+              rules:
+                - host: ${Name}.${ClusterId}.${RegionId}.alicontainer.com
+                  http:
+                    paths:
+                      - path: /
+                        backend:
+                          service:
+                            name: ${Name}-mariadb
+                            port:
+                              number: 3306
+                        pathType: ImplementationSpecific
+          - Name:
+              Fn::Replace:
+                - _ : '-'
+                - Ref: ALIYUN::StackName
+            RegionId:
+              Ref: ALIYUN::Region
+            ClusterId:
+              Ref: ClusterId
+            Storage:
+              Ref: Storage
+            Memory:
+              Ref: Memory
+            Vcpu:
+              Ref: Vcpu
+      ClusterId:
+        Ref: ClusterId
+      DefaultNamespace:
+        Fn::Replace:
+          - _: '-'
+          - Ref: ALIYUN::StackName
+Outputs:
+  # 将公网ip做为http返回的地址显示在控制台
+  Endpoint:
+    Description:
+      zh-cn: 对外暴露的公网IP地址
+      en: Public IP Addresses
+    Value:
+      Fn::Sub:
+        - http://${Name}.${ClusterId}.${RegionId}.alicontainer.com
+        - Name:
+            Ref: ALIYUN::StackName
+          RegionId:
+            Ref: ALIYUN::Region
+          ClusterId:
+            Ref: ClusterId
+Metadata:
+  'ALIYUN::ROS::Interface':
+    ParameterGroups:
+      - Parameters:
+          - Memory
+          - Vcpu
+          - Storage
+        Label:
+          en: 资源信息
+      - Parameters:
+          - ClusterId
+        Label:
+          en: 集群信息
