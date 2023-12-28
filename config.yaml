@@ -1,0 +1,74 @@
+Service:
+  RegionId: cn-hangzhou
+  DeployType: ros
+  TenantType: SingleTenant
+  DeployMetadata:
+    ServiceInstanceNameRule:
+      Prefix: mariadb
+    SupplierDeployMetadata:
+      RoleName: ${RoleName}
+      UserType: Aliyun
+      SupplierTemplateConfigs:
+        - Name: mariadb
+          AllowedRegions:
+            - ${RegionId}
+          Url: 'templates/template.yaml'
+          PredefinedParameters:
+            - Name: 低配版
+              Description: 1c1g
+              Parameters:
+                Vcpu: "1"
+                Memory: 1Gi
+                Storage: 20Gi
+              Type: Normal
+              OrderList:
+                - Vcpu
+                - Memory
+                - Storage
+            - Name: 基础版
+              Description: 2c2g
+              Parameters:
+                Vcpu: "2"
+                Memory: 2Gi
+                Storage: 40Gi
+              Type: Normal
+              OrderList:
+                - Vcpu
+                - Memory
+                - Storage
+            - Name: 高配版
+              Description: 2c4g
+              Parameters:
+                Vcpu: "2"
+                Memory: 4Gi
+                Storage: 80Gi
+              Type: Normal
+              OrderList:
+                - Vcpu
+                - Memory
+                - Storage
+          HiddenParameterKeys:
+            - ClusterId
+            - Vcpu
+            - Memory
+            - Storage
+          ParameterMappings:
+            - ParameterKey: RegionId
+              ParameterMappingKeys:
+                - ClusterId
+              ParameterValueMapping:
+                ${RegionId}:
+                  Parameters:
+                    ClusterId: ${ClusterId}
+    TemplateConfigs:
+      - Name: mariadb
+        AllowedRegions:
+          - ${RegionId}
+  ServiceType: managed
+  ServiceInfo:
+    Locale: zh-CN
+    ShortDescription: MariaDB ACK容器多租户yaml部署
+    Image: 'icons/mariadb.jpeg'
+    Name: MariaDB ACK容器yaml部署
+  ShareType: Public
+  ApprovalType: Manual
