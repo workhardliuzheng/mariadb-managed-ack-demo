@@ -1,0 +1,39 @@
+ROSTemplateFormatVersion: '2015-09-01'
+# 定义参数
+Parameters:
+  RegionId:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::RegionId
+    Label:
+      en: region id
+      zh-cn: 部署地域
+  RoleName:
+    Type: String
+    AssociationProperty: ALIYUN::RAM::Service::Role
+    AssociationPropertyMetadata:
+      Service: supplier.computenest.aliyuncs.com
+    Description: 请前往RAM控制台创建角色，角色需拥有上述模板定义的资源所需的创建权限。<a href='https://help.aliyun.com/zh/compute-nest/create-a-compute-nest-ram-role-and-grant-permissions-to-the-role' target='_blank'><b> 查看文档</b><font color='blue'></a>
+  # 可用区
+  ClusterId:
+    Type: String
+    AssociationProperty: ALIYUN::CS::Cluster::ClusterId
+    AssociationPropertyMetadata:
+      RegionId: ${RegionId}
+    Label:
+      en: cluster id
+      zh-cn: 容器服务集群ID
+Metadata:
+  ALIYUN::ROS::Interface:
+    # 定义资源分组，创建服务实例时，同一分组的参数分布在一起
+    ParameterGroups:
+      - Parameters:
+          - RegionId
+          - RoleName
+        Label:
+          en: Basic Configuration
+          zh-cn: 基础配置
+      - Parameters:
+          - ClusterId
+        Label:
+          en: Cluster Configuration
+          zh-cn: 集群配置
