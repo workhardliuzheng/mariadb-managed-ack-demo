@@ -1,8 +1,14 @@
 ROSTemplateFormatVersion: '2015-09-01'
 Description:
-  en: 新建ack部署
-  zh-cn: new ack
+  en: 部署mariadb
+  zh-cn: 部署mariadb
 Parameters:
+  AdminPassword:
+    Type: String
+    Label:
+      zh-cn: 数据库root账号密码
+      en: DB Admin Account Password
+    NoEcho: true
   ClusterId:
     Type: String
     AssociationProperty: ALIYUN::CS::Cluster::ClusterId
@@ -24,25 +30,53 @@ Parameters:
       - 40Gi
       - 80Gi
 Resources:
-  ClusterApplication:
+  ClusterNameSpaceApplication:
     Type: ALIYUN::CS::ClusterApplication
     Properties:
       YamlContent:
         Fn::Sub:
           - |
             apiVersion: v1
+            kind: Namespace
+            metadata:
+              name: '${Name}'
+              labels:
+                tenant_userid: '{{ aliUid }}'
+                tenant_clusterid: '{{ tenantClusterId }}'
+                tenant_token: '{{ tenantToken }}'
+                tenant_cloudproductcode: '{{ tenantCloudProductCode }}'
+          - Name: '{{ serviceInstanceId }}'
+      ClusterId:
+        Ref: ClusterId
+  ClusterApplication:
+    Type: ALIYUN::CS::ClusterApplication
+    DependsOn:
+      - ClusterNameSpaceApplication
+    Properties:
+      ValidationMode: Basic
+      YamlContent:
+        Fn::Sub:
+          - |
+            apiVersion: v1
             kind: Secret
             metadata:
-              name: ${Name}-secret
+              name: '${Name}-root-secret'
             data:
-              password: bWFyaWFkYg==
+              password: ${RootPassword}
+            ---
+            apiVersion: v1
+            kind: Secret
+            metadata:
+              name: '${Name}-user'
+            data:
+              password: dXNlcg==   
             ---
             apiVersion: v1
             kind: ConfigMap
             metadata:
-              name: ${Name}-mariadb-config
+              name: '${Name}-mariadb-config'
             data:
-              mariadb.cnf: |
+              config: |
                 [mariadb]
                 bind-address=*
                 default_storage_engine=InnoDB
@@ -50,92 +84,72 @@ Resources:
                 innodb_autoinc_lock_mode=2
                 max_allowed_packet=256M
             ---
-            apiVersion: apps/v1
-            kind: StatefulSet
+            apiVersion: mariadb.mmontes.io/v1alpha1
+            kind: MariaDB
             metadata:
-              name: ${Name}-mariadb
+              name: '${Name}'
             spec:
-              serviceName: ${Name}-mariadb
-              replicas: 1
-              selector:
-                matchLabels:
-                  app: ${Name}-mariadb
-              volumeClaimTemplates:
-                - metadata:
-                    name: data
-                  spec:
-                    accessModes:
-                      - ReadWriteOnce
-                    storageClassName: alicloud-disk-essd
-                    resources:
-                      requests:
-                        storage: ${Storage}
-              template:
-                metadata:
-                  labels:
-                    app: ${Name}-mariadb
-                spec:
-                  volumes:
-                    - name: ${Name}-mariadb-config
-                      configMap:
-                        name: ${Name}-mariadb-config
-                  containers:
-                    - name: mariadb
-                      image: mariadb:11.0.3
-                      resources:
-                        limits:
-                          cpu: ${Vcpu}
-                          memory: ${Memory}
-                        requests:
-                          cpu: ${Vcpu}
-                          memory: ${Memory}
-                      env:
-                        - name: MYSQL_ROOT_PASSWORD
-                          valueFrom:
-                            secretKeyRef:
-                              name: ${Name}-secret
-                              key: password
-                      ports:
-                        - containerPort: 3306
-                          name: mariadb
-                      volumeMounts:
-                        - name: data
-                          mountPath: /var/lib/mysql
-                        - name: ${Name}-mariadb-config
-                          mountPath: /etc/mysql/mariadb.conf.d/conf.d
+              rootPasswordSecretKeyRef:
+                name: '${Name}-root-secret'
+                key: password
+            
+              image: mariadb:11.0.3
+            
+              port: 3306
+              resources:
+                limits:
+                  cpu: ${Vcpu}
+                  memory: ${Memory}
+                requests:
+                  cpu: ${Vcpu}
+                  memory: ${Memory}
+            
+              volumeClaimTemplate:
+                storageClassName: alicloud-disk-essd
+                resources:
+                  requests:
+                    storage: ${Storage}
+                accessModes:
+                  - ReadWriteOnce
+              service:
+                type: LoadBalancer
+            
+              myCnfConfigMapKeyRef:
+                name: '${Name}-mariadb-config'
+                key: config
+              metrics:
+                exporter:
+                  image: prom/mysqld-exporter:v0.14.0
+                  resources:
+                    requests:
+                      cpu: 50m
+                      memory: 64Mi
+                    limits:
+                      cpu: 300m
+                      memory: 512Mi
+                  port: 9104
+                serviceMonitor:
+                  prometheusRelease: kube-prometheus-stack
+                  interval: 10s
+                  scrapeTimeout: 10s
             ---
-            apiVersion: v1
-            kind: Service
+            apiVersion: mariadb.mmontes.io/v1alpha1
+            kind: User
             metadata:
-              name: ${Name}-mariadb
+              name: '${Name}-user'
             spec:
-              selector:
-                app: ${Name}-mariadb
-              ports:
-                - port: 3306
-                  targetPort: 3306
-                  protocol: TCP
-            ---
-            apiVersion: networking.k8s.io/v1
-            kind: Ingress
-            metadata:
-              name: ${Name}-mariadb
-            spec:
-              rules:
-                - host: ${Name}.${ClusterId}.${RegionId}.alicontainer.com
-                  http:
-                    paths:
-                      - path: /
-                        backend:
-                          service:
-                            name: ${Name}-mariadb
-                            port:
-                              number: 3306
-                        pathType: ImplementationSpecific
-          - Name:
-              Fn::Replace:
-                - _ : '-'
-                - Ref: ALIYUN::StackName
+              mariaDbRef:
+                name: '${Name}'
+              passwordSecretKeyRef:
+                name: '${Name}-user'
+                key: password
+              maxUserConnections: 20
+              host: "%"
+              retryInterval: 5s
+          - Name: '{{ serviceInstanceId }}'
+            RootPassword:
+              'Fn::Base64Encode':
+                Ref: AdminPassword
             RegionId:
               Ref: ALIYUN::Region
             ClusterId:
@@ -148,10 +162,24 @@ Resources:
               Ref: Vcpu
       ClusterId:
         Ref: ClusterId
-      DefaultNamespace:
-        Fn::Replace:
-          - _: '-'
-          - Ref: ALIYUN::StackName
+      DefaultNamespace: '{{ serviceInstanceId }}'
+  YamlSleep:
+    Type: ALIYUN::ROS::Sleep
+    DependsOn:
+      - ClusterApplication
+    Properties:
+      CreateDuration: 30
+  ClusterApplicationResources:
+    Type: DATASOURCE::CS::ClusterApplicationResources
+    Properties:
+      Kind: Service
+      Name: '{{ serviceInstanceId }}'
+      ClusterId:
+        Ref: ClusterId
+      Namespace: '{{ serviceInstanceId }}'
+      JsonPath: $.status.loadBalancer.ingress[0].ip
+      FirstMatch: true
+    DependsOn: YamlSleep
 Outputs:
   # 将公网ip做为http返回的地址显示在控制台
   Endpoint:
@@ -160,13 +188,17 @@ Outputs:
       en: Public IP Addresses
     Value:
       Fn::Sub:
-        - http://${Name}.${ClusterId}.${RegionId}.alicontainer.com
-        - Name:
-            Ref: ALIYUN::StackName
-          RegionId:
-            Ref: ALIYUN::Region
-          ClusterId:
-            Ref: ClusterId
+        - mysql://${ServerAddress}:3306
+        - ServerAddress:
+            Fn::GetAtt:
+              - ClusterApplicationResources
+              - Response
+  AdminPassword:
+    Description:
+      zh-cn: 数据库管理员账号登录密码
+      en: DB Admin Account Password
+    Value:
+      Ref: AdminPassword
 Metadata:
   'ALIYUN::ROS::Interface':
     ParameterGroups:
@@ -180,3 +212,8 @@ Metadata:
           - ClusterId
         Label:
           en: 集群信息
+      - Parameters:
+          - AdminPassword
+        Label:
+          zh: 数据库信息
+          en: Database Info

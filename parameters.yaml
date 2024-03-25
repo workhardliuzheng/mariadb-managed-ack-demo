@@ -7,6 +7,9 @@ Parameters:
     Label:
       en: region id
       zh-cn: 部署地域
+    AllowedValues:
+      - cn-hangzhou
+      - cn-hongkong
   RoleName:
     Type: String
     AssociationProperty: ALIYUN::RAM::Service::Role

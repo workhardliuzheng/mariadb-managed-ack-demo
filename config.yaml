@@ -3,6 +3,9 @@ Service:
   DeployType: ros
   TenantType: SingleTenant
   DeployMetadata:
+    AllowedRegions:
+      - cn-hangzhou
+      - cn-hongkong
     ServiceInstanceNameRule:
       Prefix: mariadb
     SupplierDeployMetadata:
@@ -64,6 +67,13 @@ Service:
       - Name: mariadb
         AllowedRegions:
           - ${RegionId}
+  OperationMetadata:
+    PrometheusIntegrationType: cn-mariadb
+    PrometheusConfigMap:
+      mariadb:
+        EnablePrometheus: true
+        GrafanaDashBoardTitle: MySQL Exporter Quickstart and Dashboard
+        GrafanaDashBoardUrl: https://g.console.aliyun.com/d/549c2bf8936f7767ea6ac47c47b00f2a/mysql-exporter-quickstart-and-dashboard?orgId=355401&refresh=10s&var-datasource=cloud-product-prometheus_cn-hongkong_cn-mariadb_1563457855438522_135830&var-job=All&var-instance=All
   ServiceType: managed
   ServiceInfo:
     Locale: zh-CN
