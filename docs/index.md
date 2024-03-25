@@ -15,7 +15,7 @@
 本示例创建过程大约持续1分钟，当服务变成待提交后构建成功。
 
 ## 服务使用前提准备
-本示例需要提前准备ack集群，且集群中需要安装mariadb-operator, 推荐使用[基础资源配置服务](https://computenest.console.aliyun.com/service/instance/create/cn-hangzhou?spm=5176.24779694.0.0.6e894d22JHzSwH&type=user&ServiceId=service-8c2fa279b8ab4ba38414&ServiceVersion=beta)
+本示例需要提前准备ack集群，且集群中需要安装mariadb-operator, 推荐使用[基础资源配置服务](https://computenest.console.aliyun.com/service/instance/create/cn-hangzhou?type=user&ServiceId=service-8c2fa279b8ab4ba38414)
 ，进行基础资源配置一键安装，可以选择已有ack集群也可以新建ack集群配置基础资源。如果是选择已有ack, 要确保ACK中已经安装阿里云Prometheus插件。
 
 **注意**：一个集群只需配置一次基础资源，且给集群打开删除保护，避免误删除。
