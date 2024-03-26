@@ -54,6 +54,14 @@ Resources:
       - ClusterNameSpaceApplication
     Properties:
       ValidationMode: Basic
+      WaitUntil:
+        - Kind: Service
+          Name: mariadb
+          JsonPath: '$.status.loadBalancer.ingress[0].ip'
+          Operator: NotEmpty
+          Timeout: 300
+          ValueType: Json
+          FirstMatch: true
       YamlContent:
         Fn::Sub:
           - |
@@ -146,7 +154,7 @@ Resources:
               maxUserConnections: 20
               host: "%"
               retryInterval: 5s
-          - Name: '{{ serviceInstanceId }}'
+          - Name: mariadb
             RootPassword:
               'Fn::Base64Encode':
                 Ref: AdminPassword
@@ -163,23 +171,6 @@ Resources:
       ClusterId:
         Ref: ClusterId
       DefaultNamespace: '{{ serviceInstanceId }}'
-  YamlSleep:
-    Type: ALIYUN::ROS::Sleep
-    DependsOn:
-      - ClusterApplication
-    Properties:
-      CreateDuration: 30
-  ClusterApplicationResources:
-    Type: DATASOURCE::CS::ClusterApplicationResources
-    Properties:
-      Kind: Service
-      Name: '{{ serviceInstanceId }}'
-      ClusterId:
-        Ref: ClusterId
-      Namespace: '{{ serviceInstanceId }}'
-      JsonPath: $.status.loadBalancer.ingress[0].ip
-      FirstMatch: true
-    DependsOn: YamlSleep
 Outputs:
   # 将公网ip做为http返回的地址显示在控制台
   Endpoint:
@@ -190,9 +181,11 @@ Outputs:
       Fn::Sub:
         - mysql://${ServerAddress}:3306
         - ServerAddress:
-            Fn::GetAtt:
-              - ClusterApplicationResources
-              - Response
+            Fn::Select:
+              - 0
+              - 'Fn::GetAtt':
+                  - ClusterApplication
+                  - WaitUntilData
   AdminPassword:
     Description:
       zh-cn: 数据库管理员账号登录密码
