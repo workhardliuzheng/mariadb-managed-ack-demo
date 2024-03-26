@@ -2,7 +2,7 @@
 
 ## 服务说明
 
-本文介绍容器服务部署mariadb实现托管版多租户的流程，本示例对应的[git地址](https://github.com/aliyun-computenest/mariadb-ack-managed-demo)。
+本文介绍容器服务部署mariadb实现托管版多租户的流程，本示例对应的[git地址](https://github.com/aliyun-computenest/mariadb-managed-ack-demo)。
 
 根据该服务模板构建的服务默认包含三种套餐：
 
