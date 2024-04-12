@@ -29,6 +29,14 @@ Parameters:
       - 20Gi
       - 40Gi
       - 80Gi
+  ConfigParam:
+    Type: String
+    Description:
+      zh-cn: 数据库配置参数
+      en: Database configuration parameters
+    Label:
+      zh-cn: 数据库配置参数
+      en: Database Configuration Parameter
 Resources:
   ClusterNameSpaceApplication:
     Type: ALIYUN::CS::ClusterApplication
@@ -85,12 +93,7 @@ Resources:
               name: '${Name}-mariadb-config'
             data:
               config: |
-                [mariadb]
-                bind-address=*
-                default_storage_engine=InnoDB
-                binlog_format=row
-                innodb_autoinc_lock_mode=2
-                max_allowed_packet=256M
+            ${ConfigParam}
             ---
             apiVersion: mariadb.mmontes.io/v1alpha1
             kind: MariaDB
@@ -168,6 +171,10 @@ Resources:
               Ref: Memory
             Vcpu:
               Ref: Vcpu
+            ConfigParam:
+              Fn::Indent:
+                - Ref: ConfigParam
+                - 2
       ClusterId:
         Ref: ClusterId
       DefaultNamespace: '{{ serviceInstanceId }}'

@@ -55,6 +55,7 @@ Service:
             - Vcpu
             - Memory
             - Storage
+            - ConfigParam
           ParameterMappings:
             - ParameterKey: RegionId
               ParameterMappingKeys:
@@ -68,6 +69,58 @@ Service:
         AllowedRegions:
           - ${RegionId}
   OperationMetadata:
+    ParameterConfigs:
+      - TemplateName: mariadb
+        Parameters:
+          max_allowed_packet:
+            Type: String
+            Description: mysql服务器允许最大接收数的据包大小
+            Default: '16M'
+            ConstraintDescription: 8M~512M
+          max_connections:
+            Type: Number
+            Description: 最大连接数
+            Default: '512'
+            ConstraintDescription: 256~1024
+          max_user_connections:
+            Type: Number
+            Default: '48'
+            Description: 用户最大的连接数
+            ConstraintDescription: 32~64
+          thread_cache_size:
+            Type: Number
+            Default: '16'
+            Description: 线程缓存
+            ConstraintDescription: 8,16,32,64
+        Metadata:
+          ParameterGroups:
+            - Parameters:
+                - max_allowed_packet
+                - max_connections
+                - max_user_connections
+                - thread_cache_size
+              TemplateParameter: ConfigParam
+              DefaultValue: |-
+                [mysqld]
+                bind-address=*
+                default_storage_engine=InnoDB
+                binlog_format=row
+                innodb_autoinc_lock_mode=2
+                datadir=/data1/mysql
+                socket=/data1/mysql/mysql.sock
+                max_allowed_packet  = 256M
+                max_connections  = 512
+                max_user_connections = 50
+                thread_cache_size = 16
+                symbolic-links=0
+                sql_mode=NO_ENGINE_SUBSTITUTION,STRICT_TRANS_TABLES
+
+                [client]
+                port=3306
+                socket=/data1/mysql/mysql.sock
+              Formatter: cnf
+              FormatterConfig:
+                SectionName: mysqld
     PrometheusIntegrationType: cn-mariadb
     PrometheusConfigMap:
       mariadb:
